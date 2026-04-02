@@ -1,0 +1,1222 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no"/>
+<meta name="mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="theme-color" content="#1a9fff"/>
+<title>MiniCraft 3D</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;background:#000;overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none}
+#c{display:block;position:absolute;inset:0;width:100%;height:100%;image-rendering:pixelated;image-rendering:crisp-edges;touch-action:none}
+
+/* ── PORTRAIT WARNING ── */
+#rotHint{display:none;position:fixed;inset:0;background:#000;z-index:999;
+  flex-direction:column;align-items:center;justify-content:center;color:#fff;font-family:monospace}
+@media(orientation:portrait){#rotHint{display:flex}}
+#rotHint span{font-size:60px;animation:rot 1.5s ease-in-out infinite alternate}
+@keyframes rot{from{transform:rotate(0deg)}to{transform:rotate(90deg)}}
+#rotHint p{margin-top:14px;font-size:15px;color:#adf}
+
+/* ── OVERLAY ── */
+#overlay{position:fixed;inset:0;background:linear-gradient(135deg,#1a9fff,#5cbfff 50%,#a0dcff);
+  display:flex;flex-direction:row;align-items:center;justify-content:center;gap:30px;
+  font-family:monospace;color:#fff;z-index:90;padding:20px}
+.ov-panel{display:flex;flex-direction:column;align-items:center}
+#overlay h1{font-size:clamp(26px,5vw,50px);color:#ffff00;text-shadow:4px 4px 0 #5a5a00;letter-spacing:3px;margin-bottom:3px}
+.sub{font-size:11px;color:#d0ffff;margin-bottom:12px}
+#startBtn{padding:11px 40px;background:linear-gradient(180deg,#8ecf48,#4a8e1f);color:#fff;
+  border:3px solid #2d5e10;border-radius:5px;font-size:clamp(14px,3vw,20px);font-weight:900;
+  font-family:monospace;text-shadow:2px 2px #000;box-shadow:0 5px 0 #1a3d08;cursor:pointer}
+#startBtn:active{transform:translateY(3px);box-shadow:0 2px 0 #1a3d08}
+.tips{background:rgba(0,0,0,0.5);border:2px solid rgba(255,255,255,0.15);border-radius:8px;
+  padding:10px 14px;max-width:260px;min-width:180px}
+.tip{display:flex;justify-content:space-between;gap:8px;padding:3px 0;font-size:11px;
+  border-bottom:1px solid rgba(255,255,255,0.08)}
+.tip:last-child{border:none}.tip b{color:#FFD700;white-space:nowrap}
+
+/* ── HUD ── */
+#hud{position:fixed;inset:0;pointer-events:none;display:none}
+#fps{position:absolute;top:6px;left:8px;font-family:monospace;font-size:11px;color:#fff;text-shadow:1px 1px #000;line-height:1.7}
+#blockname{position:absolute;top:6px;left:50%;transform:translateX(-50%);font-family:monospace;font-size:12px;
+  color:#fff;text-shadow:1px 1px #000;background:rgba(0,0,0,0.45);padding:2px 10px;border-radius:4px;white-space:nowrap}
+#coords{position:absolute;top:28px;left:8px;font-family:monospace;font-size:10px;color:rgba(255,255,255,0.7);text-shadow:1px 1px #000}
+
+/* ── HOTBAR ── */
+#hotbar{position:absolute;bottom:6px;left:50%;transform:translateX(-50%);display:flex;gap:2px;pointer-events:all}
+.slot{width:40px;height:40px;background:rgba(20,20,20,0.75);border:2px solid #666;border-radius:3px;
+  display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;position:relative}
+.slot.sel{border:2.5px solid #fff;background:rgba(255,255,255,0.18)}
+.slot canvas{width:28px;height:28px;image-rendering:pixelated}
+.slot-count{position:absolute;bottom:2px;right:3px;font-family:monospace;font-size:9px;color:#fff;text-shadow:1px 1px #000}
+
+/* ── INVENTORY ── */
+#invScreen{position:fixed;inset:0;background:rgba(0,0,0,0.78);display:none;
+  flex-direction:column;align-items:center;justify-content:center;z-index:50;pointer-events:all;font-family:monospace}
+#invBox{background:rgba(30,30,30,0.95);border:3px solid #888;border-radius:8px;padding:16px;max-width:95vw}
+#invTitle{color:#fff;font-size:14px;text-align:center;margin-bottom:10px;letter-spacing:1px}
+#invGrid{display:grid;grid-template-columns:repeat(7,42px);gap:3px;margin-bottom:10px}
+#invHotbar{display:flex;gap:3px}
+.islot{width:42px;height:42px;background:rgba(60,60,60,0.8);border:2px solid #666;border-radius:3px;
+  display:flex;align-items:center;justify-content:center;cursor:pointer;position:relative;flex-shrink:0}
+.islot:hover,.islot:active{border-color:#aaa;background:rgba(100,100,100,0.8)}
+.islot canvas{width:30px;height:30px;image-rendering:pixelated}
+.islot-name{position:absolute;bottom:-18px;left:50%;transform:translateX(-50%);
+  white-space:nowrap;font-size:9px;color:#FFD700;display:none;pointer-events:none}
+.islot:hover .islot-name{display:block}
+#closeInv{margin-top:10px;padding:7px 30px;background:#555;color:#fff;border:2px solid #888;
+  border-radius:4px;font-family:monospace;font-size:13px;cursor:pointer;display:block;width:100%;text-align:center}
+
+/* ── JOYSTICK ── */
+#joy{position:absolute;bottom:52px;left:8px;width:110px;height:110px;pointer-events:all}
+#jBase{position:absolute;width:100px;height:100px;left:5px;top:5px;border-radius:50%;
+  background:rgba(255,255,255,0.08);border:2px solid rgba(255,255,255,0.28)}
+#jKnob{position:absolute;width:40px;height:40px;left:30px;top:30px;border-radius:50%;
+  background:rgba(255,255,255,0.25);border:2px solid rgba(255,255,255,0.55)}
+
+/* ── ACTION BUTTONS ── */
+.abtn{position:absolute;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  pointer-events:all;border:2.5px solid;color:#fff;text-shadow:1px 1px #000;font-family:monospace}
+#btnA {right:14px;bottom:52px;width:58px;height:58px;background:rgba(60,200,60,0.32);border-color:rgba(120,255,120,0.6);font-weight:900;font-size:20px}
+#btnB {right:88px;bottom:44px;width:50px;height:50px;background:rgba(220,50,50,0.32);border-color:rgba(255,90,90,0.55);font-size:18px}
+#btnP {right:14px;bottom:128px;width:50px;height:50px;background:rgba(50,120,255,0.32);border-color:rgba(100,170,255,0.55);font-size:18px}
+#btnI {right:88px;bottom:128px;width:40px;height:40px;background:rgba(180,130,50,0.32);border-color:rgba(255,200,80,0.55);font-size:15px}
+#btnNew{right:14px;bottom:196px;width:38px;height:38px;background:rgba(100,100,100,0.32);border-color:rgba(180,180,180,0.5);font-size:13px}
+
+/* ── PARTICLES ── */
+#pCanvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+
+/* ── DAMAGE FLASH ── */
+#flash{position:fixed;inset:0;background:rgba(255,50,50,0);pointer-events:none;z-index:5;transition:background .1s}
+</style>
+</head>
+<body>
+<div id="rotHint"><span>📱</span><p>Переверни телефон горизонтально</p></div>
+<canvas id="c"></canvas>
+<canvas id="pCanvas"></canvas>
+<div id="flash"></div>
+
+<div id="overlay">
+  <div class="ov-panel">
+    <h1>MiniCraft 3D</h1>
+    <div class="sub">Бесконечный мир • Чанки • Инвентарь</div>
+    <button id="startBtn">▶ ИГРАТЬ</button>
+  </div>
+  <div class="tips">
+    <div class="tip"><b>◉ Джойстик</b><span>Движение</span></div>
+    <div class="tip"><b>Свайп право</b><span>Камера</span></div>
+    <div class="tip"><b>A зелёная</b><span>Прыжок</span></div>
+    <div class="tip"><b>⛏ красная</b><span>Сломать блок</span></div>
+    <div class="tip"><b>🧱 синяя</b><span>Поставить блок</span></div>
+    <div class="tip"><b>📦 жёлтая</b><span>Инвентарь</span></div>
+    <div class="tip"><b>🔄 серая</b><span>Новый мир</span></div>
+  </div>
+</div>
+
+<!-- ИНВЕНТАРЬ -->
+<div id="invScreen">
+  <div id="invBox">
+    <div id="invTitle">— ИНВЕНТАРЬ —</div>
+    <div id="invGrid"></div>
+    <div id="invHotbar"></div>
+    <div id="closeInv">✕ Закрыть</div>
+  </div>
+</div>
+
+<div id="hud">
+  <div id="fps">60 FPS</div>
+  <div id="blockname">Трава</div>
+  <div id="coords">0 / 0 / 0</div>
+  <div id="hotbar"></div>
+  <div id="joy"><div id="jBase"></div><div id="jKnob"></div></div>
+  <div class="abtn" id="btnA">A</div>
+  <div class="abtn" id="btnB">⛏</div>
+  <div class="abtn" id="btnP">🧱</div>
+  <div class="abtn" id="btnI">📦</div>
+  <div class="abtn" id="btnNew">🔄</div>
+</div>
+
+<script>
+'use strict';
+
+// ════════════════════════════════════════════════════════════════
+//  AUDIO MANAGER — Web Audio API процедурные звуки
+// ════════════════════════════════════════════════════════════════
+const Audio = (() => {
+  let ctx = null;
+  function init() {
+    if (ctx) return;
+    ctx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+  function tone(freq, type, dur, vol=0.3, delay=0) {
+    if (!ctx) return;
+    const o = ctx.createOscillator();
+    const g = ctx.createGain();
+    o.connect(g); g.connect(ctx.destination);
+    o.type = type; o.frequency.value = freq;
+    const t = ctx.currentTime + delay;
+    g.gain.setValueAtTime(vol, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+    o.start(t); o.stop(t + dur + 0.01);
+  }
+  function noise(dur, vol=0.15) {
+    if (!ctx) return;
+    const buf = ctx.createBuffer(1, ctx.sampleRate * dur, ctx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    const src = ctx.createBufferSource();
+    const g = ctx.createGain();
+    src.buffer = buf; src.connect(g); g.connect(ctx.destination);
+    g.gain.setValueAtTime(vol, ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + dur);
+    src.start(); src.stop(ctx.currentTime + dur + 0.01);
+  }
+  // Звуки шагов по типу блока
+  function stepGrass()  { noise(0.06, 0.08); tone(180, 'sine', 0.05, 0.05); }
+  function stepStone()  { noise(0.04, 0.12); tone(120, 'square', 0.03, 0.03); }
+  function stepSand()   { noise(0.08, 0.06); }
+  function stepWood()   { noise(0.05, 0.1); tone(200, 'triangle', 0.04, 0.04); }
+  function breakBlock() { noise(0.12, 0.2); tone(150, 'sawtooth', 0.08, 0.08); }
+  function placeBlock() { tone(300, 'triangle', 0.06, 0.12); tone(250, 'triangle', 0.06, 0.08, 0.03); }
+  function jump()       { tone(220, 'sine', 0.1, 0.08); }
+  // Ambient — тихий фоновый шум ветра
+  let ambTimer = null;
+  function startAmbient() {
+    if (ambTimer) return;
+    function playWind() {
+      if (!ctx) return;
+      noise(2.0, 0.03);
+      ambTimer = setTimeout(playWind, 3000 + Math.random() * 4000);
+    }
+    playWind();
+  }
+  return { init, stepGrass, stepStone, stepSand, stepWood, breakBlock, placeBlock, jump, startAmbient };
+})();
+
+// ════════════════════════════════════════════════════════════════
+//  CAMERA — кватернион-стиль через yaw/pitch с правильным базисом
+// ════════════════════════════════════════════════════════════════
+const PITCH_MAX = Math.PI / 2 - 0.017; // 89°
+
+// Lerp для плавных поворотов
+let targetYaw = 0.4, targetPitch = -0.15;
+const cam = {
+  x: 0, y: 16, z: 0,
+  yaw: 0.4, pitch: -0.15,
+  velY: 0, onGround: false,
+  fwd:{x:0,y:0,z:1}, right:{x:1,y:0,z:0}, up:{x:0,y:1,z:0},
+  update(dt) {
+    // Плавный lerp поворота
+    const lerpK = Math.min(1, dt * 18);
+    this.yaw   += (targetYaw   - this.yaw)   * lerpK;
+    this.pitch += (targetPitch - this.pitch) * lerpK;
+    this.pitch  = Math.max(-PITCH_MAX, Math.min(PITCH_MAX, this.pitch));
+
+    // Ортонормированный базис
+    const cp = Math.cos(this.pitch), sp = Math.sin(this.pitch);
+    const cy = Math.cos(this.yaw),   sy = Math.sin(this.yaw);
+    this.fwd.x = sy * cp; this.fwd.y = sp; this.fwd.z = cy * cp;
+    const rLen = Math.sqrt(this.fwd.z**2 + this.fwd.x**2) || 1;
+    this.right.x =  this.fwd.z / rLen; this.right.y = 0; this.right.z = -this.fwd.x / rLen;
+    this.up.x = this.fwd.y*this.right.z - this.fwd.z*this.right.y;
+    this.up.y = this.fwd.z*this.right.x - this.fwd.x*this.right.z;
+    this.up.z = this.fwd.x*this.right.y - this.fwd.y*this.right.x;
+  }
+};
+
+// ════════════════════════════════════════════════════════════════
+//  TEXTURES — pre-baked Uint8Array (быстрее любого canvas.getImageData)
+// ════════════════════════════════════════════════════════════════
+const TS = 16;
+function rng(s){let x=s>>>0;return()=>{x=(x*1664525+1013904223)>>>0;return x/0xffffffff;};}
+function mkT(fn){const d=new Uint8Array(TS*TS*4);fn(d);return d;}
+function sp(d,x,y,r,g,b,a=255){const i=(y*TS+x)*4;d[i]=r;d[i+1]=g;d[i+2]=b;d[i+3]=a;}
+function noisy(r,g,b,v,seed){return mkT(d=>{const rn=rng(seed);
+  for(let y=0;y<TS;y++)for(let x=0;x<TS;x++){
+    const dv=(rn()*v*2-v)|0;
+    sp(d,x,y,Math.min(255,Math.max(0,r+dv)),Math.min(255,Math.max(0,g+dv)),Math.min(255,Math.max(0,b+dv)));
+  }});}
+function oreT(br,bg,bb,or_,og,ob,seed){return mkT(d=>{const rn=rng(seed);
+  for(let y=0;y<TS;y++)for(let x=0;x<TS;x++){const v=100+(rn()*40)|0;sp(d,x,y,v,v,v);}
+  for(let i=0;i<5;i++){const ox=(rn()*(TS-3))|0,oy=(rn()*(TS-3))|0;
+    for(let dy=0;dy<2;dy++)for(let dx=0;dx<2;dx++)sp(d,ox+dx,oy+dy,or_,og,ob);}});}
+
+const TX = {};
+// 1 Трава — больше вариаций, стебли, разнотравье
+TX[1]={
+  top:mkT(d=>{
+    const rn=rng(11);
+    // Базовые оттенки зелёного
+    const greens=[[93,158,41],[80,148,32],[110,175,50],[70,135,28],[102,162,44],[88,152,36]];
+    for(let y=0;y<TS;y++)for(let x=0;x<TS;x++){
+      const c=greens[(rn()*greens.length)|0];
+      sp(d,x,y,c[0],c[1],c[2]);
+    }
+    // Светлые блики (роса/солнце)
+    for(let i=0;i<6;i++){
+      const px=(rn()*TS)|0,py=(rn()*TS)|0;
+      const ti=(py*TS+px)*4;
+      d[ti]=Math.min(255,d[ti]+30);d[ti+1]=Math.min(255,d[ti+1]+35);
+    }
+    // Тёмные пятна (тень от травы)
+    for(let i=0;i<8;i++){
+      const px=(rn()*TS)|0,py=(rn()*TS)|0;
+      const ti=(py*TS+px)*4;
+      d[ti]=Math.max(0,d[ti]-20);d[ti+1]=Math.max(0,d[ti+1]-25);
+    }
+  }),
+  side:mkT(d=>{
+    const rn=rng(22);
+    for(let y=0;y<TS;y++)for(let x=0;x<TS;x++){
+      if(y<4){
+        // Зелёная полоска сверху с вариацией
+        const v=(rn()*18)|0;
+        sp(d,x,y,78+v,142+v>>1,28+v>>3);
+      } else if(y<6){
+        // Переход земля-трава
+        const k=(y-4)/2;
+        const gr=Math.round(78*(1-k)+115*k),gg=Math.round(142*(1-k)+72*k),gb=Math.round(28*(1-k)+40*k);
+        const v=(rn()*15-7)|0;
+        sp(d,x,y,Math.min(255,gr+v),Math.min(255,gg+v),Math.min(255,gb+v));
+      } else {
+        // Земля с вариацией
+        const v=(rn()*28-14)|0;
+        sp(d,x,y,115+v,72+(v>>1),40+(v>>2));
+      }
+    }
+  }),
+  bot:noisy(122,74,42,18,33)
+};
+// 2 Земля — мелкие камешки, неравномерный цвет
+TX[2]={
+  top:mkT(d=>{const rn=rng(1);
+    for(let y=0;y<TS;y++)for(let x=0;x<TS;x++){
+      const v=(rn()*30-15)|0;
+      sp(d,x,y,118+v,72+(v>>1),38+(v>>2));
+    }
+    // Мелкие камешки
+    for(let i=0;i<4;i++){const px=(rn()*(TS-2)+1)|0,py=(rn()*(TS-2)+1)|0;
+      const gv=95+(rn()*20)|0;sp(d,px,py,gv,gv-5,gv-10);sp(d,px+1,py,gv-5,gv-10,gv-15);}
+  }),
+  side:mkT(d=>{const rn=rng(2);
+    for(let y=0;y<TS;y++)for(let x=0;x<TS;x++){
+      const v=(rn()*28-14)|0;sp(d,x,y,115+v,68+(v>>1),36+(v>>2));}
+    for(let i=0;i<3;i++){const px=(rn()*(TS-2)+1)|0,py=(rn()*(TS-4)+2)|0;
+      const gv=90+(rn()*18)|0;sp(d,px,py,gv,gv-5,gv-10);}
+  }),
+  bot:noisy(108,62,32,18,3)
+};
+// 3 Камень — более выраженные трещины и рельеф
+TX[3]=(()=>{const mk=s=>mkT(d=>{const rn=rng(s);
+  // База с вариацией
+  for(let y=0;y<TS;y++)for(let x=0;x<TS;x++){
+    const v=95+(rn()*45)|0; sp(d,x,y,v,v,v);
+  }
+  // Трещины — тонкие тёмные линии по диагонали
+  for(let i=0;i<4;i++){
+    const lx=(rn()*TS)|0,ly=(rn()*TS)|0,len=2+Math.floor(rn()*5);
+    const dir=rn()>.5?1:-1;
+    for(let t2=0;t2<len;t2++){
+      const px=(lx+t2)&(TS-1), py=(ly+t2*dir+TS)&(TS-1);
+      sp(d,px,py,50,50,50);
+    }
+  }
+  // Светлые грани (рельеф)
+  for(let i=0;i<6;i++){
+    const px=(rn()*(TS-1))|0,py=(rn()*(TS-1))|0;
+    const ti=(py*TS+px)*4;
+    d[ti]=Math.min(255,d[ti]+22);d[ti+1]=Math.min(255,d[ti+1]+22);d[ti+2]=Math.min(255,d[ti+2]+22);
+  }
+});return{top:mk(40),side:mk(41),bot:mk(42)};})();
+// 4 Дерево — более детальные кольца и волокна
+TX[4]=(()=>{
+  const side=mkT(d=>{const rn=rng(50);
+    // 4 вертикальные доски с тёмными стыками
+    for(let x=0;x<TS;x++){
+      const col4=Math.floor(x/(TS/4));
+      const base=col4%2===0?[142,92,45]:[112,72,32];
+      // Тёмный стык между досками
+      const seam=(x%(TS/4)===0)?0.6:1;
+      for(let y=0;y<TS;y++){
+        const v=(rn()*14-7)|0;
+        sp(d,x,y,(base[0]+v)*seam|0,(base[1]+v>>1)*seam|0,(base[2]+v>>2)*seam|0);
+      }
+    }
+    // Горизонтальные волокна
+    for(let y2=2;y2<TS;y2+=3){
+      for(let x=0;x<TS;x++){
+        const ti=(y2*TS+x)*4;
+        d[ti]=Math.max(0,d[ti]-8);d[ti+1]=Math.max(0,d[ti+1]-5);
+      }
+    }
+  });
+  const top=mkT(d=>{
+    // Концентрические кольца спила
+    for(let y=0;y<TS;y++)for(let x=0;x<TS;x++){
+      const dist=Math.hypot(x-TS/2+0.5,y-TS/2+0.5);
+      // Чередуем светлые и тёмные кольца
+      const ring=Math.floor(dist)%2;
+      const base=ring?[165,115,55]:[138,88,40];
+      // Добавляем радиальные трещины
+      const angle=Math.atan2(y-TS/2,x-TS/2);
+      const crack=(Math.abs(Math.sin(angle*4))<0.08&&dist>2)?0.75:1;
+      sp(d,x,y,base[0]*crack|0,base[1]*crack|0,base[2]*crack|0);
+    }
+  });
+  return{top,side,bot:top};
+})();
+// 5 Листья
+// ПАТЧ: убраны чёрные пиксели (0,0,0) — заменены тёмным зелёным.
+// Чёрный цвет давал "texture bleeding" при интерполяции UV на границах пикселей.
+TX[5]=(()=>{
+  // Палитра: 5 оттенков зелёного — никаких чёрных!
+  const LEAF_PAL=[
+    [22,100,18],[18,85,15],[35,120,28],[15,75,12],[28,110,22]
+  ];
+  const mk=s=>mkT(d=>{
+    const rn=rng(s);
+    for(let y=0;y<TS;y++)for(let x=0;x<TS;x++){
+      // Редкие "прогалины" — тёмный зелёный, а не чёрный
+      const c=rn()<.07 ? LEAF_PAL[4] : LEAF_PAL[(rn()*4)|0];
+      sp(d,x,y,c[0],c[1],c[2]);
+    }
+    // Лёгкий шум поверх для объёма
+    for(let i=0;i<20;i++){
+      const px=(rn()*TS)|0, py=(rn()*TS)|0;
+      const ti=(py*TS+px)*4;
+      d[ti]=Math.min(255,d[ti]+15);
+      d[ti+1]=Math.min(255,d[ti+1]+20);
+    }
+  });
+  return{top:mk(60),side:mk(61),bot:mk(62)};
+})();
+// 6 Песок
+TX[6]={top:noisy(217,194,122,22,70),side:noisy(200,178,108,20,71),bot:noisy(185,165,95,18,72)};
+// 7 Уголь — чёрные жилы с блёстками
+TX[7]=(()=>{const mk=s=>mkT(d=>{const rn=rng(s);
+  for(let y=0;y<TS;y++)for(let x=0;x<TS;x++){const v=95+(rn()*40)|0;sp(d,x,y,v,v,v);}
+  // Чёрные угольные включения — крупнее и рваные
+  for(let i=0;i<5;i++){
+    const ox2=(rn()*(TS-4))|0,oy2=(rn()*(TS-4))|0;
+    const w=2+Math.floor(rn()*3),h=2+Math.floor(rn()*3);
+    for(let dy=0;dy<h;dy++)for(let dx=0;dx<w;dx++)
+      if(rn()>.2) sp(d,ox2+dx,oy2+dy,18,18,18);
+  }
+  // Блёстки (антрацит)
+  for(let i=0;i<4;i++){const px=(rn()*TS)|0,py=(rn()*TS)|0;sp(d,px,py,80,80,80);}
+});return{top:mk(80),side:mk(81),bot:mk(82)};})();
+
+// 8 Золото — яркие самородки с блеском
+TX[8]=(()=>{const mk=s=>mkT(d=>{const rn=rng(s);
+  for(let y=0;y<TS;y++)for(let x=0;x<TS;x++){const v=95+(rn()*40)|0;sp(d,x,y,v,v,v);}
+  // Золотые включения разного размера
+  for(let i=0;i<6;i++){
+    const ox2=(rn()*(TS-3))|0,oy2=(rn()*(TS-3))|0;
+    const sz=1+Math.floor(rn()*2);
+    for(let dy=0;dy<sz;dy++)for(let dx=0;dx<sz;dx++){
+      const bright=200+(rn()*55)|0;
+      sp(d,ox2+dx,oy2+dy,bright,bright*0.78|0,0);
+    }
+  }
+  // Блики
+  for(let i=0;i<3;i++){const px=(rn()*TS)|0,py=(rn()*TS)|0;sp(d,px,py,255,240,80);}
+});return{top:mk(90),side:mk(91),bot:mk(92)};})();
+
+// 9 Алмаз — кристаллическая структура + сияние
+TX[9]=(()=>{const mk=s=>mkT(d=>{const rn=rng(s);
+  for(let y=0;y<TS;y++)for(let x=0;x<TS;x++){const v=95+(rn()*40)|0;sp(d,x,y,v,v,v);}
+  // Кристаллы алмаза — ромбовидные включения
+  for(let i=0;i<4;i++){
+    const cx2=(rn()*(TS-4)+2)|0,cy2=(rn()*(TS-4)+2)|0;
+    const r2=1+Math.floor(rn()*2);
+    for(let dy=-r2;dy<=r2;dy++)for(let dx=-r2;dx<=r2;dx++){
+      if(Math.abs(dx)+Math.abs(dy)<=r2){
+        const px=cx2+dx,py=cy2+dy;
+        if(px>=0&&px<TS&&py>=0&&py<TS){
+          const bright=rn()>.4?[0,220,240]:[80,240,255];
+          sp(d,px,py,bright[0],bright[1],bright[2]);
+        }
+      }
+    }
+  }
+  // Сияние — белые точки
+  for(let i=0;i<5;i++){const px=(rn()*TS)|0,py=(rn()*TS)|0;sp(d,px,py,220,255,255);}
+});return{top:mk(100),side:mk(101),bot:mk(102)};})();
+// 10 Лава
+TX[10]=(()=>{const mk=s=>mkT(d=>{const rn=rng(s);
+  for(let y=0;y<TS;y++)for(let x=0;x<TS;x++){const v=(rn()*80)|0;sp(d,x,y,180+(v*.3)|0,35+(v*.1)|0,0);}
+  for(let i=0;i<8;i++){const ox=(rn()*(TS-3))|0,oy=(rn()*(TS-3))|0;
+    for(let dy=0;dy<2;dy++)for(let dx=0;dx<2;dx++)sp(d,ox+dx,oy+dy,255,160,0);}
+  });return{top:mk(110),side:mk(111),bot:mk(112)};})();
+// 11 Снег
+TX[11]={top:noisy(238,242,255,8,120),side:noisy(218,224,238,10,121),bot:noisy(200,208,225,10,122)};
+// 12 Планки
+TX[12]=(()=>{const mk=()=>mkT(d=>{for(let y=0;y<TS;y++)for(let x=0;x<TS;x++){
+  const row=Math.floor(y/(TS/4));const off=row%2?TS/2:0;
+  const dark=y%(TS/4)===0||(x+off)%8===0;
+  sp(d,x,y,...(dark?[130,85,35]:[188,138,68]));}});const s=mk();return{top:s,side:mk(),bot:s};})();
+// 13 Стекло
+TX[13]=(()=>{const mk=()=>mkT(d=>{for(let y=0;y<TS;y++)for(let x=0;x<TS;x++){
+  const bord=x===0||x===TS-1||y===0||y===TS-1;sp(d,x,y,bord?180:80,bord?215:160,bord?255:220);}});
+  const s=mk();return{top:s,side:s,bot:s};})();
+// 14 Железо
+TX[14]={top:oreT(0,0,0,190,148,118,150),side:oreT(0,0,0,190,148,118,151),bot:oreT(0,0,0,190,148,118,152)};
+// 15 Гравий
+TX[15]=(()=>{const mk=s=>mkT(d=>{const rn=rng(s);
+  for(let y=0;y<TS;y++)for(let x=0;x<TS;x++){const v=90+(rn()*50)|0;sp(d,x,y,v,v-10,v-15);}
+  });return{top:mk(200),side:mk(201),bot:mk(202)};})();
+// 16 Красный камень
+TX[16]={top:oreT(0,0,0,180,20,20,210),side:oreT(0,0,0,180,20,20,211),bot:oreT(0,0,0,180,20,20,212)};
+
+const BNAMES={1:"Трава",2:"Земля",3:"Камень",4:"Дерево",5:"Листья",6:"Песок",7:"Уголь",8:"Золото",9:"Алмаз",10:"Лава",11:"Снег",12:"Планки",13:"Стекло",14:"Железо",15:"Гравий",16:"Красный камень"};
+const ALL_BLOCKS=[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16];
+
+// ════════════════════════════════════════════════════════════════
+//  CHUNK SYSTEM — бесконечный мир
+//  Чанк = 16×16×24 блоков
+//  Генерируется по запросу, выгружается при удалении
+// ════════════════════════════════════════════════════════════════
+const CX=16, CY=24, CZ=16;
+const RENDER_DIST = 4; // чанков от игрока
+const MAX_CHUNKS = 120; // максимум чанков в памяти (Object Pooling)
+
+const chunks = new Map(); // key="cx,cz" → Uint8Array(CX*CY*CZ)
+const chunkKeys = []; // LRU очередь
+
+function chunkKey(cx,cz){return cx+','+cz;}
+function worldToChunk(x,z){return[Math.floor(x/CX), Math.floor(z/CZ)];}
+
+// Шум Перлина — упрощённая версия (2D value noise)
+const PERM = new Uint8Array(512);
+(()=>{const p=new Uint8Array(256);for(let i=0;i<256;i++)p[i]=i;
+  for(let i=255;i>0;i--){const j=Math.floor(Math.random()*(i+1));[p[i],p[j]]=[p[j],p[i]];}
+  for(let i=0;i<512;i++)PERM[i]=p[i&255];})();
+
+function fade(t){return t*t*t*(t*(t*6-15)+10);}
+function lerp2(a,b,t){return a+(b-a)*t;}
+function grad2(h,x,y){const v=h&3;const u=v<2?x:y,w=v<2?y:x;return((h&1)?-u:u)+((h&2)?-w:w);}
+function pnoise(x,y){
+  const xi=Math.floor(x)&255, yi=Math.floor(y)&255;
+  const xf=x-Math.floor(x), yf=y-Math.floor(y);
+  const u=fade(xf), v2=fade(yf);
+  const aa=PERM[PERM[xi  ]+yi],ab=PERM[PERM[xi  ]+yi+1];
+  const ba=PERM[PERM[xi+1]+yi],bb=PERM[PERM[xi+1]+yi+1];
+  return lerp2(lerp2(grad2(aa,xf,yf),grad2(ba,xf-1,yf),u),
+               lerp2(grad2(ab,xf,yf-1),grad2(bb,xf-1,yf-1),u),v2);
+}
+function octaveNoise(x,y,octs,persistence,lacunarity){
+  let val=0,amp=1,freq=1,max=0;
+  for(let i=0;i<octs;i++){val+=pnoise(x*freq,y*freq)*amp;max+=amp;amp*=persistence;freq*=lacunarity;}
+  return val/max;
+}
+
+function heightAt(wx,wz){
+  const h = octaveNoise(wx*0.012, wz*0.012, 4, 0.5, 2.0);
+  return Math.round(8 + h * 10);
+}
+
+function generateChunk(cx, cz){
+  const data = new Uint8Array(CX*CY*CZ);
+  const idxC = (x,y,z) => x + z*CX + y*CX*CZ;
+
+  for(let lx=0;lx<CX;lx++)for(let lz=0;lz<CZ;lz++){
+    const wx = cx*CX+lx, wz = cz*CZ+lz;
+    const surf = Math.min(CY-2, Math.max(2, heightAt(wx,wz)));
+
+    for(let y=0;y<CY;y++){
+      let b=0;
+      if(y===0) b=3;
+      else if(y===surf){
+        if(surf<=5) b=6;        // пляж
+        else if(surf>=17) b=11; // снег
+        else b=1;               // трава
+      }
+      else if(y<surf&&y>=surf-3) b=2;
+      else if(y<surf-3&&y>0){
+        const r=Math.random();
+        if(r<.008)  b=9;  // алмаз
+        else if(r<.018) b=8;  // золото
+        else if(r<.035) b=14; // железо
+        else if(r<.060) b=16; // красный камень
+        else if(r<.110) b=7;  // уголь
+        else if(r<.130) b=15; // гравий
+        else b=3;
+      }
+      data[idxC(lx,y,lz)]=b;
+    }
+
+    // Деревья
+    if(surf>=6&&surf<=15&&Math.random()<0.045&&lx>2&&lx<CX-3&&lz>2&&lz<CZ-3){
+      const th=4+Math.floor(Math.random()*3);
+      for(let t=1;t<=th&&surf+t<CY;t++) data[idxC(lx,surf+t,lz)]=4;
+      for(let dx=-2;dx<=2;dx++)for(let dz2=-2;dz2<=2;dz2++)for(let dy=-1;dy<=2;dy++){
+        if(Math.abs(dx)+Math.abs(dz2)+Math.abs(dy)<4){
+          const lx2=lx+dx,ly2=surf+th+dy,lz2=lz+dz2;
+          if(lx2>=0&&lx2<CX&&ly2>=0&&ly2<CY&&lz2>=0&&lz2<CZ&&!data[idxC(lx2,ly2,lz2)])
+            data[idxC(lx2,ly2,lz2)]=5;
+        }
+      }
+    }
+    // Лава на дне
+    if(Math.random()<.006) data[idxC(lx,1,lz)]=10;
+  }
+  return data;
+}
+
+function getOrCreateChunk(cx,cz){
+  const k=chunkKey(cx,cz);
+  if(chunks.has(k)) return chunks.get(k);
+  // Evict LRU если слишком много чанков
+  if(chunkKeys.length>=MAX_CHUNKS){
+    const old=chunkKeys.shift();
+    chunks.delete(old);
+  }
+  const data=generateChunk(cx,cz);
+  chunks.set(k,data);
+  chunkKeys.push(k);
+  return data;
+}
+
+// Глобальный getB / setB через чанки
+function getB(wx,wy,wz){
+  if(wy<0||wy>=CY) return 0;
+  const cx=Math.floor(wx/CX), cz=Math.floor(wz/CZ);
+  const lx=((wx%CX)+CX)%CX, lz=((wz%CZ)+CZ)%CZ;
+  const ch=getOrCreateChunk(cx,cz);
+  return ch[lx+lz*CX+wy*CX*CZ];
+}
+function setB(wx,wy,wz,v){
+  if(wy<0||wy>=CY) return;
+  const cx=Math.floor(wx/CX), cz=Math.floor(wz/CZ);
+  const lx=((wx%CX)+CX)%CX, lz=((wz%CZ)+CZ)%CZ;
+  const ch=getOrCreateChunk(cx,cz);
+  ch[lx+lz*CX+wy*CX*CZ]=v;
+}
+
+function spawnPlayer(){
+  cam.x=0.5; cam.z=0.5;
+  cam.y=heightAt(0,0)+3;
+  targetYaw=0.4; targetPitch=-0.15;
+  cam.yaw=0.4; cam.pitch=-0.15;
+  cam.velY=0; cam.onGround=false;
+}
+
+// Pre-generate start area
+function pregenerateStart(){
+  for(let cx=-2;cx<=2;cx++)for(let cz=-2;cz<=2;cz++) getOrCreateChunk(cx,cz);
+  spawnPlayer();
+}
+
+// ════════════════════════════════════════════════════════════════
+//  INVENTORY
+// ════════════════════════════════════════════════════════════════
+const HOTBAR_SIZE = 9;
+const hotbarSlots = [1,2,3,4,5,6,7,8,9]; // начальные блоки
+let selIdx = 0;
+let invOpen = false;
+
+function openInventory(){
+  invOpen=true;
+  document.getElementById('invScreen').style.display='flex';
+  buildInventoryUI();
+}
+function closeInventory(){
+  invOpen=false;
+  document.getElementById('invScreen').style.display='none';
+}
+
+function buildInventoryUI(){
+  // Все блоки в сетке
+  const grid=document.getElementById('invGrid');
+  grid.innerHTML='';
+  ALL_BLOCKS.forEach(bid=>{
+    const slot=document.createElement('div');
+    slot.className='islot';
+    const c=document.createElement('canvas');c.width=TS;c.height=TS;
+    const cx2=c.getContext('2d');
+    const tex=TX[bid];
+    if(tex){const id=cx2.createImageData(TS,TS);id.data.set(tex.top);cx2.putImageData(id,0,0);}
+    slot.appendChild(c);
+    const nm=document.createElement('div');nm.className='islot-name';nm.textContent=BNAMES[bid]||'';
+    slot.appendChild(nm);
+    slot.addEventListener('touchstart',e=>{
+      e.stopPropagation();
+      // Кладём в выбранный хотбар слот
+      hotbarSlots[selIdx]=bid;
+      buildHotbar();updateHotbar();
+    },{passive:true});
+    slot.addEventListener('click',()=>{hotbarSlots[selIdx]=bid;buildHotbar();updateHotbar();});
+    grid.appendChild(slot);
+  });
+  // Хотбар внизу инвентаря
+  const hb=document.getElementById('invHotbar');hb.innerHTML='';
+  hotbarSlots.forEach((bid,i)=>{
+    const slot=document.createElement('div');
+    slot.className='islot'+(i===selIdx?' sel':'');
+    const c=document.createElement('canvas');c.width=TS;c.height=TS;
+    const cx2=c.getContext('2d');
+    const tex=TX[bid];
+    if(tex){const id=cx2.createImageData(TS,TS);id.data.set(tex.top);cx2.putImageData(id,0,0);}
+    slot.appendChild(c);hb.appendChild(slot);
+  });
+}
+
+// ════════════════════════════════════════════════════════════════
+//  DDA RAYCAST
+// ════════════════════════════════════════════════════════════════
+function raycast(ox,oy,oz,dx,dy,dz,maxD){
+  let bx=Math.floor(ox),by=Math.floor(oy),bz=Math.floor(oz);
+  const sx=dx>0?1:-1,sy=dy>0?1:-1,sz=dz>0?1:-1;
+  const tdx=Math.abs(dx)<1e-9?1e30:Math.abs(1/dx);
+  const tdy=Math.abs(dy)<1e-9?1e30:Math.abs(1/dy);
+  const tdz=Math.abs(dz)<1e-9?1e30:Math.abs(1/dz);
+  let tx=dx>0?(bx+1-ox)*tdx:(ox-bx)*tdx;
+  let ty=dy>0?(by+1-oy)*tdy:(oy-by)*tdy;
+  let tz=dz>0?(bz+1-oz)*tdz:(oz-bz)*tdz;
+  let nx=0,ny=0,nz=0,dist=0;
+  for(let i=0;i<120;i++){
+    if(dist>maxD)break;
+    const b=getB(bx,by,bz);
+    if(b){const hx=ox+dx*dist,hy=oy+dy*dist,hz=oz+dz*dist;
+      return{bx,by,bz,nx,ny,nz,b,dist,hx,hy,hz};}
+    if(tx<ty&&tx<tz){nx=-sx;ny=0;nz=0;dist=tx;tx+=tdx;bx+=sx;}
+    else if(ty<tz){nx=0;ny=-sy;nz=0;dist=ty;ty+=tdy;by+=sy;}
+    else{nx=0;ny=0;nz=-sz;dist=tz;tz+=tdz;bz+=sz;}
+  }
+  return null;
+}
+
+// ════════════════════════════════════════════════════════════════
+//  PARTICLES — 2D частицы на отдельном canvas
+// ════════════════════════════════════════════════════════════════
+const pCanvas = document.getElementById('pCanvas');
+const pCtx = pCanvas.getContext('2d');
+const particles = [];
+
+function resizePC(){pCanvas.width=window.innerWidth;pCanvas.height=window.innerHeight;}
+resizePC();window.addEventListener('resize',resizePC);
+
+function spawnParticles(blockType){
+  const tex = TX[blockType]; if(!tex) return;
+  // Берём цвет из текстуры
+  const si = ((Math.random()*TS)|0*TS + (Math.random()*TS)|0)*4;
+  const r=tex.side[si]||128, g=tex.side[si+1]||128, b2=tex.side[si+2]||128;
+  const cx2=pCanvas.width/2, cy2=pCanvas.height/2;
+  for(let i=0;i<14;i++){
+    const angle=Math.random()*Math.PI*2;
+    const spd=2+Math.random()*5;
+    particles.push({
+      x:cx2,y:cy2,
+      vx:Math.cos(angle)*spd,vy:Math.sin(angle)*spd-3,
+      r,g,b:b2,
+      life:1,decay:0.04+Math.random()*0.04,
+      size:4+Math.random()*6
+    });
+  }
+}
+
+function updateParticles(dt){
+  pCtx.clearRect(0,0,pCanvas.width,pCanvas.height);
+  for(let i=particles.length-1;i>=0;i--){
+    const p=particles[i];
+    p.vy+=10*dt; p.x+=p.vx; p.y+=p.vy;
+    p.life-=p.decay;
+    if(p.life<=0){particles.splice(i,1);continue;}
+    pCtx.globalAlpha=p.life;
+    pCtx.fillStyle=`rgb(${p.r},${p.g},${p.b})`;
+    pCtx.fillRect(p.x-p.size/2,p.y-p.size/2,p.size,p.size);
+  }
+  pCtx.globalAlpha=1;
+}
+
+// ════════════════════════════════════════════════════════════════
+//  RENDERER — pixel-by-pixel raycaster с smooth lighting
+// ════════════════════════════════════════════════════════════════
+const canvas=document.getElementById('c');
+const ctx=canvas.getContext('2d',{alpha:false});
+const off=document.createElement('canvas');
+const offCtx=off.getContext('2d',{alpha:false});
+let RW,RH,offImg,offBuf,skyBuf;
+
+function initBuffers(){
+  const dpr=Math.min(window.devicePixelRatio||1,2);
+  // Адаптивное разрешение: чем выше dpr тем ниже res рендера
+  const scale=dpr>1?4.5:3.5;
+  RW=Math.max(80,Math.floor(window.innerWidth/scale))|0;
+  RH=Math.max(50,Math.floor(window.innerHeight/scale))|0;
+  off.width=RW;off.height=RH;
+  offImg=offCtx.createImageData(RW,RH);
+  offBuf=new Uint8Array(offImg.data.buffer);
+  skyBuf=new Uint8Array(RW*RH*4);
+  // Небо: верх = тёмно-синий, горизонт (t=0.5) = #50AFff (80,175,255),
+  // низ = светло-голубой. Горизонт ТОЧНО совпадает с цветом тумана.
+  for(let row=0;row<RH;row++){
+    const t=row/RH;
+    // Верх → горизонт → чуть светлее у земли
+    let r,g,b2;
+    if(t<0.5){
+      // Верх→горизонт: (30,120,255) → (80,175,255)
+      const k=t*2;
+      r=(30+k*50)|0; g=(120+k*55)|0; b2=255;
+    } else {
+      // Горизонт→низ неба: (80,175,255) → (140,210,255)
+      const k=(t-0.5)*2;
+      r=(80+k*60)|0; g=(175+k*35)|0; b2=255;
+    }
+    for(let col=0;col<RW;col++){
+      const i=(row*RW+col)*4;
+      skyBuf[i]=r;skyBuf[i+1]=g;skyBuf[i+2]=b2;skyBuf[i+3]=255;
+    }
+  }
+}
+function resize(){
+  canvas.width=window.innerWidth;canvas.height=window.innerHeight;
+  initBuffers();
+  updateFOV();
+}
+resize();window.addEventListener('resize',resize);
+updateFOV();
+
+const FOGST=12, FOGEND=22;
+
+// ── Правильный FOV с учётом aspect ratio ─────────────────────────
+// FOV = 65° горизонтальный. tan(32.5°) = 0.6371
+// Вертикальный FOV автоматически масштабируется через aspect ratio,
+// чтобы не было растяжения на широких и узких экранах.
+const H_FOV_DEG = 65;
+const H_FOV_TAN = Math.tan(H_FOV_DEG * Math.PI / 360); // tan(FOV/2)
+let ASPECT = 1, VFOV_TAN = 1;
+function updateFOV(){
+  ASPECT = (canvas.width||1) / (canvas.height||1);
+  // VFOV_TAN = H_FOV_TAN / aspect — корректная перспектива без растяжения
+  VFOV_TAN = H_FOV_TAN / ASPECT;
+}
+
+function renderFrame(){
+  const{fwd,right,up,x:ox,y:oy,z:oz}=cam;
+
+  // ── Динамическое освещение ────────────────────────────────────
+  // 1. День/ночь: цикл 10 минут (600 сек). sunLight [0..1]
+  const dayT=(performance.now()/1000)%600/600; // 0..1 за 10 мин
+  const sunAngle=dayT*Math.PI*2;
+  // Свет: 1.0 в полдень (sunAngle≈π/2), 0.15 ночью
+  const sunLight=Math.max(0.15, Math.min(1.0, Math.sin(sunAngle)*0.85+0.55));
+
+  // 2. Пещерная тьма: если над игроком есть блоки — темнее
+  let caveShade=1.0;
+  for(let cy3=Math.floor(oy)+1; cy3<Math.min(Math.floor(oy)+8, CY); cy3++){
+    if(getB(Math.floor(ox),cy3,Math.floor(oz))){caveShade=0.25;break;}
+  }
+  // Итоговый глобальный свет
+  const globalLight=sunLight*caveShade;
+
+  // Небо меняет цвет по времени суток
+  const skyR=(30+sunLight*50)|0, skyG=(120+sunLight*55)|0;
+  // Туман цвета горизонта (зависит от времени суток)
+  const fogR=(skyR+50)|0, fogG=(skyG+55)|0, fogB=255;
+
+  offBuf.set(skyBuf);
+  // Тонируем небо под время суток (ночью темнеем)
+  if(sunLight<0.8){
+    const dk=sunLight/0.8;
+    for(let i=0;i<offBuf.length;i+=4){
+      offBuf[i  ]=(offBuf[i  ]*dk)|0;
+      offBuf[i+1]=(offBuf[i+1]*dk)|0;
+      offBuf[i+2]=(offBuf[i+2]*dk+40*(1-dk))|0;
+    }
+  }
+
+  for(let col=0;col<RW;col++){
+    // Нормированная координата [-1..1] с учётом aspect ratio
+    const su=(col/RW)*2-1;
+    for(let row=0;row<RH;row++){
+      const sv=1-(row/RH)*2;
+      // Правильная perspective projection:
+      // ray = forward + su*tan(hFOV/2)*right + sv*tan(vFOV/2)*up
+      let rdx=fwd.x+su*H_FOV_TAN*right.x+sv*VFOV_TAN*up.x;
+      let rdy=fwd.y+su*H_FOV_TAN*right.y+sv*VFOV_TAN*up.y;
+      let rdz=fwd.z+su*H_FOV_TAN*right.z+sv*VFOV_TAN*up.z;
+      const rl=1/Math.sqrt(rdx*rdx+rdy*rdy+rdz*rdz);
+      rdx*=rl;rdy*=rl;rdz*=rl;
+      const hit=raycast(ox,oy,oz,rdx,rdy,rdz,FOGEND);
+      if(!hit)continue;
+      const tex=TX[hit.b];if(!tex)continue;
+      const face=hit.ny!==0?(hit.ny>0?tex.top:tex.bot):tex.side;
+
+      // ── UV с half-pixel correction ────────────────────────────────
+      // Сдвиг на 0.5/TS внутрь тайла — исключает захват соседних пикселей
+      // (аналог Half-Pixel Correction в GPU mip-mapping)
+      const UV_BIAS = 0.5/TS;
+      let u,v;
+      if(hit.ny!==0){
+        u=((hit.hx%1)+1)%1; v=((hit.hz%1)+1)%1;
+        if(hit.ny<0) u=1-u;
+      } else if(hit.nx!==0){
+        u=((hit.hz%1)+1)%1; v=1-((hit.hy%1)+1)%1;
+        if(hit.nx<0) u=1-u;
+      } else {
+        u=((hit.hx%1)+1)%1; v=1-((hit.hy%1)+1)%1;
+        if(hit.nz>0) u=1-u;
+      }
+      // Clamp UV в пределах [UV_BIAS, 1-UV_BIAS] — Point Filter без bleeding
+      u = Math.max(UV_BIAS, Math.min(1-UV_BIAS, u));
+      v = Math.max(UV_BIAS, Math.min(1-UV_BIAS, v));
+
+      const tx2=((u*(TS-1))|0)&(TS-1);
+      const ty2=((v*(TS-1))|0)&(TS-1);
+      const ti=(ty2*TS+tx2)*4;
+      let fr=face[ti],fg=face[ti+1],fb=face[ti+2];
+
+      // ── Directional Light + Voxel AO ─────────────────────────────
+      // Базовое освещение по нормали грани (Lambert, солнце сверху-справа)
+      let shade;
+      if(hit.ny>0)       shade=1.00;  // верхняя грань — полный свет
+      else if(hit.ny<0)  shade=0.45;  // нижняя грань — почти тень
+      else if(hit.nx!==0) shade=0.70; // боковые X — средний свет
+      else                shade=0.85; // боковые Z — чуть светлее
+
+      // Реальный Voxel AO: проверяем заполненность соседних блоков
+      // по двум осям грани. Каждый соседний блок -= 0.08 яркости.
+      const bx2=hit.bx, by2=hit.by, bz2=hit.bz;
+      let ao=0;
+      if(hit.ny!==0){
+        // AO для верхней/нижней грани — проверяем 4 диагональных соседа
+        const ay=by2+(hit.ny>0?1:-1);
+        if(getB(bx2+1,ay,bz2  ))ao++;
+        if(getB(bx2-1,ay,bz2  ))ao++;
+        if(getB(bx2  ,ay,bz2+1))ao++;
+        if(getB(bx2  ,ay,bz2-1))ao++;
+      } else if(hit.nx!==0){
+        // AO для граней X
+        const ax=bx2+hit.nx;
+        if(getB(ax,by2+1,bz2  ))ao++;
+        if(getB(ax,by2-1,bz2  ))ao++;
+        if(getB(ax,by2  ,bz2+1))ao++;
+        if(getB(ax,by2  ,bz2-1))ao++;
+      } else {
+        // AO для граней Z
+        const az=bz2+hit.nz;
+        if(getB(bx2+1,by2  ,az))ao++;
+        if(getB(bx2-1,by2  ,az))ao++;
+        if(getB(bx2  ,by2+1,az))ao++;
+        if(getB(bx2  ,by2-1,az))ao++;
+      }
+      // Каждый заполненный сосед затемняет на 7%
+      shade *= (1 - ao*0.07);
+
+      // Дополнительный edge AO по UV (тонкая каёмка тени у рёбер блока)
+      const eu=Math.min(u,1-u)*2.2, ev=Math.min(v,1-v)*2.2;
+      shade *= (0.88 + 0.12*Math.min(eu,ev));
+      // ── Туман: цвет = горизонт неба ──────────────────────────────
+      const fog=Math.max(0,Math.min(1,(hit.dist-FOGST)/(FOGEND-FOGST)));
+      const fogQ=fog*fog;
+      const inv=1-fogQ;
+      const pi=(row*RW+col)*4;
+      // globalLight применяется к блоку, туман остаётся светлым
+      const gl=globalLight;
+      offBuf[pi  ]=(fr*shade*gl*inv+fogR*fogQ)|0;
+      offBuf[pi+1]=(fg*shade*gl*inv+fogG*fogQ)|0;
+      offBuf[pi+2]=(fb*shade*gl*inv+fogB*fogQ)|0;
+      offBuf[pi+3]=255;
+    }
+  }
+  offImg.data.set(offBuf);
+  offCtx.putImageData(offImg,0,0);
+  ctx.imageSmoothingEnabled=false;
+  ctx.drawImage(off,0,0,canvas.width,canvas.height);
+
+  // Прицел
+  const cx2=canvas.width>>1,cy2=canvas.height>>1;
+  ctx.lineWidth=3;ctx.strokeStyle='rgba(0,0,0,0.5)';
+  ctx.beginPath();ctx.moveTo(cx2-11,cy2);ctx.lineTo(cx2+11,cy2);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(cx2,cy2-11);ctx.lineTo(cx2,cy2+11);ctx.stroke();
+  ctx.lineWidth=1.5;ctx.strokeStyle='rgba(255,255,255,0.95)';
+  ctx.beginPath();ctx.moveTo(cx2-9,cy2);ctx.lineTo(cx2+9,cy2);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(cx2,cy2-9);ctx.lineTo(cx2,cy2+9);ctx.stroke();
+
+  // Выделение целевого блока
+  const hit=raycast(cam.x,cam.y,cam.z,cam.fwd.x,cam.fwd.y,cam.fwd.z,8);
+  if(hit){
+    // Рисуем простой контур по центру экрана
+    ctx.strokeStyle='rgba(0,0,0,0.5)';ctx.lineWidth=2;
+    ctx.strokeRect(cx2-12,cy2-12,24,24);
+  }
+}
+
+// ════════════════════════════════════════════════════════════════
+//  PHYSICS
+// ════════════════════════════════════════════════════════════════
+function collides(x,y,z){
+  const hw=0.3;
+  for(let dx=-hw;dx<=hw;dx+=hw*2)
+    for(let dz=-hw;dz<=hw;dz+=hw*2)
+      if(getB(Math.floor(x+dx),Math.floor(y),Math.floor(z+dz)))return true;
+  return false;
+}
+
+// Шаги — звук каждые N метров
+let stepDist=0, lastStepX=0, lastStepZ=0;
+function updateStep(dt){
+  const moved=Math.hypot(cam.x-lastStepX,cam.z-lastStepZ);
+  stepDist+=moved; lastStepX=cam.x; lastStepZ=cam.z;
+  if(stepDist>1.5&&cam.onGround){
+    stepDist=0;
+    const b=getB(Math.floor(cam.x),Math.floor(cam.y-1.9),Math.floor(cam.z));
+    if(b===1||b===5||b===11) Audio.stepGrass();
+    else if(b===3||b===7||b===8||b===9||b===14) Audio.stepStone();
+    else if(b===6||b===15) Audio.stepSand();
+    else if(b===4||b===12) Audio.stepWood();
+    else Audio.stepGrass();
+  }
+}
+
+// ════════════════════════════════════════════════════════════════
+//  INPUT
+// ════════════════════════════════════════════════════════════════
+const keys={};
+let gameActive=false;
+const joy={active:false,dx:0,dy:0,id:-1};
+const look={active:false,id:-1,lx:0,ly:0};
+const jKnob=document.getElementById('jKnob');
+
+function getJoyCX(){return 65;}
+function getJoyCY(){return canvas.height-90;}
+function isJoyArea(tx,ty){return Math.hypot(tx-getJoyCX(),ty-getJoyCY())<85;}
+function isHotbarArea(ty){return ty>canvas.height-50;}
+
+function doBreak(){
+  const hit=raycast(cam.x,cam.y,cam.z,cam.fwd.x,cam.fwd.y,cam.fwd.z,8);
+  if(!hit)return;
+  const bt=hit.b;
+  setB(hit.bx,hit.by,hit.bz,0);
+  Audio.breakBlock();
+  spawnParticles(bt);
+  flashScreen();
+}
+function doPlace(){
+  const hit=raycast(cam.x,cam.y,cam.z,cam.fwd.x,cam.fwd.y,cam.fwd.z,8);
+  if(!hit)return;
+  const nx2=hit.bx+hit.nx,ny2=hit.by+hit.ny,nz2=hit.bz+hit.nz;
+  if(ny2<0||ny2>=CY)return;
+  setB(nx2,ny2,nz2,hotbarSlots[selIdx]);
+  Audio.placeBlock();
+}
+function flashScreen(){
+  const f=document.getElementById('flash');
+  f.style.background='rgba(255,255,255,0.2)';
+  setTimeout(()=>f.style.background='rgba(255,255,255,0)',80);
+}
+
+// Touch events на document
+const activeTouches={};
+function handleTouchStart(e){
+  const tag=e.target.tagName;
+  if(tag==='BUTTON'||tag==='A')return;
+  if(!gameActive)return;
+  e.preventDefault();
+  for(let i=0;i<e.changedTouches.length;i++){
+    const t=e.changedTouches[i];
+    const tx=t.clientX,ty=t.clientY;
+    let role='look';
+    if(isHotbarArea(ty)){
+      const sw=Math.min(canvas.width*.85,HOTBAR_SIZE*40)/HOTBAR_SIZE;
+      const hx=(canvas.width-sw*HOTBAR_SIZE)/2;
+      const id2=Math.floor((tx-hx)/sw);
+      if(id2>=0&&id2<HOTBAR_SIZE){selIdx=id2;updateHotbar();}
+      role='hotbar';
+    } else if(isJoyArea(tx,ty)){
+      joy.active=true;joy.id=t.identifier;joy.dx=0;joy.dy=0;role='joy';
+    }
+    activeTouches[t.identifier]={role,lx:tx,ly:ty};
+    if(role==='look'){look.active=true;look.id=t.identifier;look.lx=tx;look.ly=ty;}
+  }
+}
+function handleTouchMove(e){
+  const tag=e.target.tagName;
+  if(tag==='BUTTON'||tag==='A')return;
+  if(!gameActive)return;
+  e.preventDefault();
+  for(let i=0;i<e.changedTouches.length;i++){
+    const t=e.changedTouches[i];
+    const tx=t.clientX,ty=t.clientY;
+    const info=activeTouches[t.identifier];if(!info)continue;
+    if(info.role==='joy'&&joy.active&&joy.id===t.identifier){
+      const dx2=(tx-getJoyCX())/65,dy2=(ty-getJoyCY())/65;
+      const l=Math.hypot(dx2,dy2);
+      joy.dx=l>1?dx2/l:dx2;joy.dy=l>1?dy2/l:dy2;
+      jKnob.style.left=(30+joy.dx*32)+'px';jKnob.style.top=(30+joy.dy*32)+'px';
+    }
+    if(info.role==='look'&&look.active&&look.id===t.identifier){
+      // Delta-based — не координаты, а смещение
+      const ddx=tx-look.lx, ddy=ty-look.ly;
+      targetYaw  -=ddx*0.004;
+      targetPitch-=ddy*0.004;
+      targetPitch=Math.max(-PITCH_MAX,Math.min(PITCH_MAX,targetPitch));
+      look.lx=tx;look.ly=ty;
+    }
+    info.lx=tx;info.ly=ty;
+  }
+}
+function handleTouchEnd(e){
+  const tag=e.target.tagName;
+  if(tag==='BUTTON'||tag==='A')return;
+  if(!gameActive)return;
+  e.preventDefault();
+  for(let i=0;i<e.changedTouches.length;i++){
+    const t=e.changedTouches[i];
+    const info=activeTouches[t.identifier];if(!info)continue;
+    if(info.role==='joy'){joy.active=false;joy.dx=0;joy.dy=0;jKnob.style.left='30px';jKnob.style.top='30px';}
+    if(info.role==='look'){look.active=false;look.id=-1;}
+    delete activeTouches[t.identifier];
+  }
+}
+document.addEventListener('touchstart',handleTouchStart,{passive:false});
+document.addEventListener('touchmove', handleTouchMove, {passive:false});
+document.addEventListener('touchend',  handleTouchEnd,  {passive:false});
+document.addEventListener('touchcancel',handleTouchEnd, {passive:false});
+
+// Action buttons
+document.getElementById('btnA').addEventListener('touchstart',e=>{e.stopPropagation();keys._jump=true;Audio.jump();},{passive:false});
+document.getElementById('btnA').addEventListener('touchend',  e=>{e.stopPropagation();keys._jump=false;},{passive:false});
+document.getElementById('btnB').addEventListener('touchstart',e=>{e.stopPropagation();doBreak();},{passive:false});
+document.getElementById('btnP').addEventListener('touchstart',e=>{e.stopPropagation();doPlace();},{passive:false});
+document.getElementById('btnI').addEventListener('touchstart',e=>{e.stopPropagation();invOpen?closeInventory():openInventory();},{passive:false});
+document.getElementById('btnNew').addEventListener('touchstart',e=>{e.stopPropagation();chunks.clear();chunkKeys.length=0;pregenerateStart();},{passive:false});
+document.getElementById('closeInv').addEventListener('touchstart',e=>{e.stopPropagation();closeInventory();},{passive:false});
+document.getElementById('closeInv').addEventListener('click',closeInventory);
+
+// PC
+let mDrag=false,mLX=0,mLY=0;
+canvas.addEventListener('mousedown',e=>{
+  if(!gameActive||invOpen)return;
+  mDrag=true;mLX=e.clientX;mLY=e.clientY;
+  if(e.button===0)doBreak();if(e.button===2)doPlace();
+});
+window.addEventListener('mousemove',e=>{
+  if(!mDrag||!gameActive)return;
+  targetYaw  -=(e.clientX-mLX)*.003;
+  targetPitch-=(e.clientY-mLY)*.003;
+  targetPitch=Math.max(-PITCH_MAX,Math.min(PITCH_MAX,targetPitch));
+  mLX=e.clientX;mLY=e.clientY;
+});
+window.addEventListener('mouseup',()=>mDrag=false);
+canvas.addEventListener('contextmenu',e=>e.preventDefault());
+window.addEventListener('keydown',e=>{
+  keys[e.code]=true;
+  const n=['Digit1','Digit2','Digit3','Digit4','Digit5','Digit6','Digit7','Digit8','Digit9'].indexOf(e.code);
+  if(n>=0&&n<HOTBAR_SIZE){selIdx=n;updateHotbar();}
+  if(e.code==='KeyE'){invOpen?closeInventory():openInventory();}
+  if(e.code==='Escape')closeInventory();
+});
+window.addEventListener('keyup',e=>keys[e.code]=false);
+
+// ════════════════════════════════════════════════════════════════
+//  HOTBAR UI
+// ════════════════════════════════════════════════════════════════
+function buildHotbar(){
+  const hb=document.getElementById('hotbar');hb.innerHTML='';
+  hotbarSlots.forEach((bid,i)=>{
+    const slot=document.createElement('div');
+    slot.className='slot'+(i===selIdx?' sel':'');
+    const c=document.createElement('canvas');c.width=TS;c.height=TS;
+    const cx2=c.getContext('2d');
+    const tex=TX[bid];
+    if(tex){const id=cx2.createImageData(TS,TS);id.data.set(tex.top);cx2.putImageData(id,0,0);}
+    slot.appendChild(c);hb.appendChild(slot);
+    slot.addEventListener('click',()=>{selIdx=i;updateHotbar();});
+    slot.addEventListener('touchstart',e=>{e.stopPropagation();selIdx=i;updateHotbar();},{passive:true});
+  });
+}
+function updateHotbar(){
+  document.querySelectorAll('#hotbar .slot').forEach((s,i)=>s.className='slot'+(i===selIdx?' sel':''));
+  document.getElementById('blockname').textContent=BNAMES[hotbarSlots[selIdx]]||'';
+}
+
+// ════════════════════════════════════════════════════════════════
+//  GAME LOOP
+// ════════════════════════════════════════════════════════════════
+let lastT=performance.now(),frameC=0,fpsAcc=0;
+const fpsEl=document.getElementById('fps');
+const coordEl=document.getElementById('coords');
+
+function loop(){
+  requestAnimationFrame(loop);
+  const now=performance.now();
+  const dt=Math.min((now-lastT)/1000,0.05);
+  lastT=now;
+  frameC++;fpsAcc+=dt;
+  if(fpsAcc>=0.5){
+    const dayT2=(performance.now()/1000)%600/600;
+    const sunA=dayT2*Math.PI*2;
+    const sl=Math.max(0.15,Math.min(1,Math.sin(sunA)*0.85+0.55));
+    const timeIcon=sl>0.7?'☀️':sl>0.35?'🌅':'🌙';
+    fpsEl.textContent=Math.round(frameC/fpsAcc)+' FPS '+timeIcon;
+    coordEl.textContent=`${Math.floor(cam.x)} / ${Math.floor(cam.y)} / ${Math.floor(cam.z)}`;
+    frameC=0;fpsAcc=0;
+  }
+
+  if(gameActive&&!invOpen){
+    // Camera smooth update
+    cam.update(dt);
+
+    // Movement
+    const sp=5.5*dt;
+    const sy=Math.sin(cam.yaw),cy2=Math.cos(cam.yaw);
+    let mx=0,mz=0;
+    if(joy.active){mx+=sy*(-joy.dy)*sp+cy2*joy.dx*sp;mz+=cy2*(-joy.dy)*sp-sy*joy.dx*sp;}
+    if(keys.KeyW||keys.ArrowUp){mx+=sy*sp;mz+=cy2*sp;}
+    if(keys.KeyS||keys.ArrowDown){mx-=sy*sp;mz-=cy2*sp;}
+    if(keys.KeyA||keys.ArrowLeft){mx-=cy2*sp;mz+=sy*sp;}
+    if(keys.KeyD||keys.ArrowRight){mx+=cy2*sp;mz-=sy*sp;}
+
+    const f=cam.y-1.75,h=cam.y+.2;
+    if(!collides(cam.x+mx,f,cam.z)&&!collides(cam.x+mx,h,cam.z))cam.x+=mx;
+    if(!collides(cam.x,f,cam.z+mz)&&!collides(cam.x,h,cam.z+mz))cam.z+=mz;
+
+    cam.velY+=-22*dt;
+    if((keys.Space||keys._jump)&&cam.onGround){cam.velY=7.8;cam.onGround=false;}
+    let ny=cam.y+cam.velY*dt;
+    if(cam.velY<0&&collides(cam.x,ny-1.75,cam.z)){cam.velY=0;cam.onGround=true;ny=Math.floor(ny-1.75+1)+1.75;}
+    else if(cam.velY>0&&collides(cam.x,ny+.2,cam.z)){cam.velY=-.1;}
+    else cam.onGround=false;
+    cam.y=Math.max(1.75,Math.min(CY-1,ny));
+
+    updateStep(dt);
+    // Pre-generate chunks ahead of player
+    const[pcx,pcz]=worldToChunk(cam.x,cam.z);
+    for(let dx=-1;dx<=1;dx++)for(let dz=-1;dz<=1;dz++) getOrCreateChunk(pcx+dx,pcz+dz);
+  }
+
+  updateParticles(dt);
+  renderFrame();
+}
+
+// ════════════════════════════════════════════════════════════════
+//  INIT
+// ════════════════════════════════════════════════════════════════
+function lockLandscape(){
+  try{if(screen.orientation&&screen.orientation.lock)screen.orientation.lock('landscape').catch(()=>{});}catch(e){}
+}
+
+buildHotbar();
+updateHotbar();
+pregenerateStart();
+loop();
+
+function startGame(){
+  Audio.init();
+  Audio.startAmbient();
+  lockLandscape();
+  document.getElementById('overlay').style.display='none';
+  document.getElementById('hud').style.display='block';
+  gameActive=true;
+  updateHotbar();
+}
+const startBtn=document.getElementById('startBtn');
+startBtn.addEventListener('click',startGame);
+startBtn.addEventListener('touchend',e=>{e.stopPropagation();startGame();},{passive:true});
+</script>
+</body>
+</html>
